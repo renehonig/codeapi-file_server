@@ -1,0 +1,29 @@
+name: link-package
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    env:
+      REPO: ${{ github.repository }}
+      PKG: ${{ github.event.repository.name }}
+      ACTOR: ${{ github.actor }}
+      PAT: ${{ secrets.WORKFLOW_GHCR_TOKEN }}
+      GT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - run: |
+          set -euo pipefail
+          printf '%s' "$PAT" | docker login ghcr.io -u renehonig --password-stdin >/dev/null
+          docker pull "ghcr.io/renehonig/${PKG}:latest"
+          docker tag "ghcr.io/renehonig/${PKG}:latest" "ghcr.io/${REPO}:latest"
+          if printf '%s' "$GT" | docker login ghcr.io -u "$ACTOR" --password-stdin >/dev/null 2>&1 && docker push "ghcr.io/${REPO}:latest"; then
+            echo "pushed with GITHUB_TOKEN"
+          else
+            printf '%s' "$PAT" | docker login ghcr.io -u renehonig --password-stdin >/dev/null
+            docker push "ghcr.io/${REPO}:latest"
+          fi
